@@ -16,3 +16,4 @@ xsim.*
 webtalk*.*
 vivado*.backup.*
 .cxl.*
+usage_statistics_webtalk*

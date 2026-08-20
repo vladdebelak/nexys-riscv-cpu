@@ -6,7 +6,11 @@ Vivado `xsim`, and synthesized clean for the board.
 
 This repo also **logs its own design process** — every RTL edit, test run,
 bug, and synthesis run — as data for an academic write-up on agentic
-LLM-assisted FPGA/CPU design. See [Design log](#design-log).
+LLM-assisted FPGA/CPU design. See [Design log](#design-log), and
+**[`docs/AGENTIC_DESIGN_CASE_STUDY.md`](docs/AGENTIC_DESIGN_CASE_STUDY.md)** for
+the full methods-and-results narrative (design loop, iterations, bugs, process
+and quality metrics, the SymbiYosys/ABV trade-off, and how Vivado was adapted to
+an agentic loop).
 
 ## Status
 

@@ -1,18 +1,135 @@
 # nexys-riscv-cpu
 
-A 3-stage pipelined RV32I CPU, targeting the Digilent Nexys A7-100T
-(Xilinx Artix-7 XC7A100T) FPGA board.
+A 3-stage pipelined **RV32I** CPU for the Digilent **Nexys A7-100T**
+(Xilinx Artix-7 `XC7A100T`). Written in portable Verilog-2001, verified with
+Vivado `xsim`, and synthesized clean for the board.
 
-## Target spec
+This repo also **logs its own design process** — every RTL edit, test run,
+bug, and synthesis run — as data for an academic write-up on agentic
+LLM-assisted FPGA/CPU design. See [Design log](#design-log).
 
-- **ISA**: RV32I (base integer, 32-bit registers/instructions/datapath)
-- **Pipeline**: 3 stages (fetch, decode/execute, memory/writeback — exact
-  split TBD as the design progresses)
-- **Board**: Nexys A7-100T
+## Status
 
-## Process logging
+| Milestone | State |
+|---|---|
+| ALU + register file (unit tests) | ✅ pass under xsim |
+| 3-stage pipelined core | ✅ integration test passes |
+| Full RV32I base integer ISA | ✅ (see [ISA support](#isa-support)) |
+| Nexys A7 top (MMCM + reset sync) + XDC | ✅ synthesizes, timing met |
+| Bitstream / on-hardware bring-up | ⏳ not yet run |
 
-This project logs its own design process (iterations, bugs, formal runs,
-synth/impl metrics, session cost) for an academic write-up on agentic
-LLM-assisted FPGA/CPU design. See `CLAUDE.md` for the logging conventions
-and `logs/SCHEMA.md` for the field reference.
+**Latest synthesis** (Vivado 2020.2, `xc7a100tcsg324-1`, LED-counter workload):
+819 LUTs (1.3%), 159 FF, 6.5 BRAM tiles, 0 DSP. All timing met at the 25 MHz
+CPU clock (post-synth WNS +26.8 ns → ~76 MHz Fmax headroom).
+
+## Architecture at a glance
+
+```
+        IF                    ID / EX                        MEM / WB
+   ┌───────────┐        ┌────────────────────┐        ┌────────────────────┐
+   │  PC  ─► imem(sync) │ decode + regfile RD │        │  dmem(sync) read   │
+   │           │──instr─►│ +WB→EX forwarding  │──────► │  load format       │
+   │  +4 / redirect ◄────│ ALU / branch / addr│  reg   │  result mux → RF WR │
+   └───────────┘  target └────────────────────┘  write └────────────────────┘
+```
+
+- **Data hazards**: a single **WB→EX forwarding** path. In a 3-stage pipeline
+  the only RAW distance that races the register file is 1; distance ≥2 is
+  already committed. Because load data is a registered BRAM output that is
+  stable for the whole MEM/WB cycle, **loads forward with no stall**.
+- **Control hazards**: branches/jumps resolve in EX → exactly **one** shadow
+  instruction is squashed (1-cycle penalty) and the PC is redirected.
+- **I/O**: a memory-mapped 16-bit LED register (`0x0000_1000`) drives LD0–LD15;
+  `ECALL`/`EBREAK` halt the core.
+
+Full details, timing diagrams, and the memory map are in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Repository layout
+
+```
+rtl/                 synthesizable Verilog
+  rv32i_defs.vh        opcode/ALU/control constants
+  alu.v regfile.v      datapath leaf modules
+  decoder.v            instruction decode + immediate generation
+  imem.v dmem.v        synchronous BRAM models (byte-enabled dmem)
+  rv32i_core.v         the 3-stage pipeline
+  rv32i_top.v          Nexys A7 wrapper (MMCM 100→25 MHz, reset sync, LEDs)
+constraints/
+  nexys_a7_100t.xdc    pin + timing constraints
+sim/
+  tb_alu.v tb_regfile.v   self-checking unit tests
+  tb_core.v tb_led.v      integration tests (run a program, check LEDs)
+  programs/*.s / *.hex    test programs + assembled images
+synth/synth.tcl        non-project synthesis flow
+scripts/
+  asm.py               tiny two-pass RV32I assembler (.s → .hex)
+  run_sim.sh           compile+run one testbench under xsim
+  run_vivado.sh        run a Vivado tcl, summarize errors/timing
+  labjournal.py        append-only process logger  (see logs/)
+logs/                  the design-process dataset (JSONL) + SCHEMA.md
+```
+
+## Building & testing
+
+Prerequisites: **Vivado 2020.2+** (provides `xvlog`/`xelab`/`xsim` and
+`vivado`) and **Python 3**. On this Windows host the working interpreter is
+`python` (the `python3` alias is a Store stub); adjust to taste.
+
+### Simulate
+
+```bash
+# unit tests
+scripts/run_sim.sh sim/tb_alu.v
+scripts/run_sim.sh sim/tb_regfile.v
+
+# integration: assemble a program and run it on the full core
+scripts/run_sim.sh sim/tb_core.v sim/programs/test1.s      # self-check → led=0x0ACE
+scripts/run_sim.sh sim/tb_led.v  sim/programs/led_counter.s
+```
+
+`test1.s` is a self-checking exerciser: every check branches to `fail` on
+mismatch, and the program writes `0x0ACE` to the LEDs only if **all** checks
+pass (`0x0BAD` otherwise) — so the CPU proves its own correctness and the
+testbench just reads the LEDs.
+
+### Assemble a program
+
+```bash
+python scripts/asm.py sim/programs/test1.s -o build/test1.hex
+```
+
+The assembler covers the RV32I base set plus pseudo-ops (`li`, `mv`, `j`,
+`ret`, `beqz`, `nop`, …). See its header for syntax.
+
+### Synthesize for the board
+
+```bash
+scripts/run_vivado.sh synth/synth.tcl      # → build/synth/*.rpt
+```
+
+By default it bakes `sim/programs/led_counter.hex` into the instruction BRAM
+(an all-NOP image would let synthesis prune the whole core). To run on
+hardware you would continue to place-and-route and generate a bitstream, then
+program the Nexys A7 — the LEDs will count.
+
+## ISA support
+
+All of **RV32I base integer**:
+
+- `LUI`, `AUIPC`
+- `JAL`, `JALR`
+- `BEQ` `BNE` `BLT` `BGE` `BLTU` `BGEU`
+- `LB` `LH` `LW` `LBU` `LHU`, `SB` `SH` `SW`
+- `ADDI` `SLTI` `SLTIU` `XORI` `ORI` `ANDI` `SLLI` `SRLI` `SRAI`
+- `ADD` `SUB` `SLL` `SLT` `SLTU` `XOR` `SRL` `SRA` `OR` `AND`
+- `FENCE` (NOP on this single-hart core), `ECALL`/`EBREAK` (halt)
+
+No CSRs, traps, or M/A/F extensions (out of scope for the base target).
+
+## Design log
+
+`logs/*.jsonl` records the build process — iterations, bugs, formal runs, and
+synth/impl metrics — appended by `scripts/labjournal.py`. `logs/SCHEMA.md`
+documents every field. This is the dataset for the paper, not just changelog
+noise; see `CLAUDE.md` for the (self-applied) logging conventions.

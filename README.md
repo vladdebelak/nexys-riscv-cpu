@@ -49,7 +49,19 @@ CPU clock (post-synth WNS +26.8 ns → ~76 MHz Fmax headroom).
   `ECALL`/`EBREAK` halt the core.
 
 Full details, timing diagrams, and the memory map are in
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). For a stage-by-stage visual
+walkthrough with **real waveforms** (forwarding and branch-flush captured in
+simulation), see [`docs/PIPELINE_WALKTHROUGH.md`](docs/PIPELINE_WALKTHROUGH.md).
+
+### Documentation index
+
+| Doc | What it covers |
+|---|---|
+| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Microarchitecture, hazards, memory map, clocking/reset |
+| [`PIPELINE_WALKTHROUGH.md`](docs/PIPELINE_WALKTHROUGH.md) | Stage-by-stage datapath (Mermaid) + rendered waveforms + cycle-by-cycle trace |
+| [`HARDWARE_DEMOS.md`](docs/HARDWARE_DEMOS.md) | What the board LEDs mean (`test1` self-test vs. counter) |
+| [`AGENTIC_DESIGN_CASE_STUDY.md`](docs/AGENTIC_DESIGN_CASE_STUDY.md) | Methods/results narrative for the academic write-up |
+| [`SCALING_ANALYSIS.md`](docs/SCALING_ANALYSIS.md) | How effort/time/tokens would scale to a much larger core |
 
 ## Repository layout
 

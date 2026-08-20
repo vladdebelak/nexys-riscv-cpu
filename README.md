@@ -137,7 +137,15 @@ scripts/run_vivado.sh synth/synth.tcl      # → build/synth/*.rpt
 By default it bakes `sim/programs/led_counter.hex` into the instruction BRAM
 (an all-NOP image would let synthesis prune the whole core). To run on
 hardware you would continue to place-and-route and generate a bitstream, then
-program the Nexys A7 — the LEDs will count.
+program the Nexys A7.
+
+### On the board
+
+`synth/impl.tcl` runs place & route and writes `build/impl/rv32i_top.bit`;
+`scripts/program.tcl` flashes it to a connected board over JTAG. For what the
+LEDs mean once it's running — the memory-mapped LED trick, the self-test's
+frozen `0x0ACE` pass pattern vs. the counter's live display, and how to swap
+the program — see **[`docs/HARDWARE_DEMOS.md`](docs/HARDWARE_DEMOS.md)**.
 
 ## ISA support
 

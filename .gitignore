@@ -5,3 +5,14 @@ build/
 *.pyc
 __pycache__/
 .DS_Store
+
+# Vivado / xsim scratch artifacts (when tools are run from the repo root)
+*.log
+*.pb
+xsim.dir/
+xvlog.*
+xelab.*
+xsim.*
+webtalk*.*
+vivado*.backup.*
+.cxl.*

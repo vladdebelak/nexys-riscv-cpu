@@ -9,6 +9,9 @@ set outdir build/synth
 # LEDs are constant and synthesis prunes the whole core, so we bake in the
 # LED-counter demo (override on the command line if desired).
 set prog   sim/programs/led_counter.hex
+# Override the baked-in program image with the PROG_HEX env var, e.g.
+#   PROG_HEX=sim/programs/test1.hex scripts/run_vivado.sh synth/synth.tcl
+if {[info exists ::env(PROG_HEX)]} { set prog $::env(PROG_HEX) }
 file mkdir $outdir
 
 # ---- read design ----

@@ -133,6 +133,13 @@ aligned to the CPU clock.
   pass/fail on the LEDs.
 - **Board demo**: `tb_led` runs `led_counter.s` and checks the LED counter
   advances.
+- **Assertion-based / formal** (`formal/`): 19 SVA properties `bind`-attached to
+  the RTL — every ALU op + zero flag (vs 200k random vectors), `x0` reads zero,
+  and core control invariants (halt sticky, `redirect ⇒ flush` next cycle, a
+  squashed EX slot performs no register/memory write, `is_led ⇒ dmem_be==0`, and
+  the LED register only changes on a store to `LED_ADDR`). Written in the
+  SymbiYosys SVA subset so they double as BMC where `sby` exists; run here as
+  bounded simulation checks under `xsim`.
 
 See `logs/` for the full per-iteration record, including a bug found during
 bring-up (an assembler label-address off-by that a far `jal` exposed).
